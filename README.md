@@ -1,6 +1,10 @@
 # modern_robotics_rs_hw
 
-This project contains Rust exercises for the course "Modern Robotics". It is set up as a library crate with a simple binary.
+This project contains Rust exercises for the course "Modern Robotics". It
+demonstrates using the
+[`modern_robotics_rs`](https://github.com/CottontailRabbit/modern_robotics_rs)
+library for computing skew-symmetric matrices and the
+[`plotters`](https://crates.io/crates/plotters) crate for simple plots.
 
 ## Setup
 
@@ -23,4 +27,7 @@ cargo test
 ```bash
 cargo run
 ```
+
+Running the binary prints the skew-symmetric matrix computed from a sample vector.
+It also generates a `plot.png` file with a quadratic curve.
 
