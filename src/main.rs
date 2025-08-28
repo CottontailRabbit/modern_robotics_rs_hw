@@ -1,3 +1,4 @@
+
 use nalgebra::Vector3;
 use modern_robotics_rs::vec_to_skew3;
 use plotters::prelude::*;
@@ -23,4 +24,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     root.present()?;
     println!("Saved plot to plot.png");
     Ok(())
-}
+
