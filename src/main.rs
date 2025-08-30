@@ -22,6 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &RED,
     ))?;
     root.present()?;
+    
     println!("Saved plot to plot.png");
     Ok(())
-
+}
