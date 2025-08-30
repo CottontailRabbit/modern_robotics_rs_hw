@@ -7,4 +7,4 @@ edition = "2024"
 modern_robotics_rs = { git = "https://github.com/CottontailRabbit/modern_robotics_rs" }
 nalgebra = "0.32"
 plotters = "0.3"
-
+anyhow = "1"
