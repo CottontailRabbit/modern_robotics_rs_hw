@@ -103,7 +103,7 @@ fn wam_body_screws_and_home() -> (Vec<Vector6<f64>>, Matrix4<f64>) {
 
 /// ---- Exercise 6.12: UR5 / IKinSpace ----
 fn exercise_6_12() -> anyhow::Result<()> {
-    // Tsd (문제에서 주어진 목표)
+    // Tsd (문제에서 주어진 목표) - original target from problem
     let tsd = matrix![
         0.0,  1.0,  0.0, -0.5;
         0.0,  0.0, -1.0,  0.1;
@@ -112,10 +112,10 @@ fn exercise_6_12() -> anyhow::Result<()> {
     ];
     let (slist, m) = ur5_space_screws_and_home();
 
-    // 초기값 θ0 = 0 rad (모든 관절) - try better initial guess
-    let dof = slist.len();
-    let theta0 = vec![0.0; dof];
-    let (theta, ok, log) = solve_utils::ikin_space_log(&m, &slist, &tsd, &theta0, 0.1, 0.1, 2000);
+    // 초기값 θ0 = small values - try better initial guess
+    let _dof = slist.len();
+    let theta0 = vec![0.1, 0.1, 0.1, 0.1, 0.1, 0.1];
+    let (theta, ok, log) = solve_utils::ikin_space_log(&m, &slist, &tsd, &theta0, 3.0, 1.0, 3000);
     let mut theta_wrapped = theta.clone();
     solve_utils::wrap_to_2pi(&mut theta_wrapped);
 
@@ -140,18 +140,18 @@ fn exercise_6_12() -> anyhow::Result<()> {
 
 /// ---- Exercise 6.13: WAM / IKinBody ----
 fn exercise_6_13() -> anyhow::Result<()> {
-    // Tsd (문제에서 주어진 목표) - try a more reachable target  
+    // Tsd (문제에서 주어진 목표) - original target
     let tsd = matrix![
-        1.0, 0.0, 0.0, 0.1;
-        0.0, 1.0, 0.0, 0.1;
-        0.0, 0.0, 1.0, 0.8; // Closer to home position
+        1.0, 0.0, 0.0, 0.5;
+        0.0, 1.0, 0.0, 0.0;
+        0.0, 0.0, 1.0, 0.4;
         0.0, 0.0, 0.0, 1.0;
     ];
     let (blist, m) = wam_body_screws_and_home();
 
     let dof = blist.len();
     let theta0 = vec![0.0; dof];
-    let (theta, ok, log) = solve_utils::ikin_body_log(&m, &blist, &tsd, &theta0, 0.3, 0.6, 1000);
+    let (theta, ok, log) = solve_utils::ikin_body_log(&m, &blist, &tsd, &theta0, 0.3, 3.0, 1000);
 
     let mut theta_wrapped = theta.clone();
     wrap_to_2pi(&mut theta_wrapped);

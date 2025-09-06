@@ -4,7 +4,7 @@ use modern_robotics_rs::{
     matrix_log6, se3_to_vec,
 };
 
-use nalgebra::{Matrix4, Vector6, Vector3, Matrix6, OMatrix, U6, Dyn};
+use nalgebra::{Matrix4, Vector6, Vector3, OMatrix, U6, Dyn};
 
 // 6×n Jacobian 타입 별칭 (여기서 직접 정의)
 pub type Mat6xX = OMatrix<f64, U6, Dyn>;
@@ -18,7 +18,7 @@ pub struct IKSolveLog {
 
 /// DLS step: Δθ = Jᵀ (J Jᵀ + λ² I)⁻¹ V
 fn dls_step(j: &Mat6xX, v: &Vector6<f64>, lambda: f64) -> Vec<f64> {
-    use nalgebra::{Matrix6, OMatrix, Dyn, U6};
+    use nalgebra::Matrix6;
     let jt = j.transpose();               // n×6
     let jj_t: Matrix6<f64> = j * j.transpose(); // 6×6
     

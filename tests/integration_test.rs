@@ -1,4 +1,4 @@
-use nalgebra::{matrix, vector, Matrix4, Vector6};
+use nalgebra::{vector, Matrix4, Vector6};
 use modern_robotics_rs::{fkin_space, jacobian_space};
 
 #[test]
