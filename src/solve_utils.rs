@@ -21,7 +21,12 @@ fn dls_step(j: &Mat6xX, v: &Vector6<f64>, lambda: f64) -> Vec<f64> {
     use nalgebra::{Matrix6, OMatrix, Dyn, U6};
     let jt = j.transpose();               // n×6
     let jj_t: Matrix6<f64> = j * j.transpose(); // 6×6
-    let a = jj_t + Matrix6::identity() * (lambda * lambda);
+    
+    // Adaptive damping based on conditioning
+    let condition_number = jj_t.norm() / (jj_t.try_inverse().map_or(1e-12, |inv| inv.norm()));
+    let adaptive_lambda = if condition_number > 1e6 { lambda * 1000.0 } else { lambda };
+    
+    let a = jj_t + Matrix6::identity() * (adaptive_lambda * adaptive_lambda);
 
     let y = if let Some(cho) = a.cholesky() {
         cho.solve(v)
@@ -29,7 +34,11 @@ fn dls_step(j: &Mat6xX, v: &Vector6<f64>, lambda: f64) -> Vec<f64> {
         a.lu().solve(v).expect("DLS solve failed")
     };
     let delta = jt * y; // n×1
-    delta.iter().copied().collect()
+    
+    // Limit step size to prevent large jumps
+    let delta_vec: Vec<f64> = delta.iter().copied().collect();
+    let max_step = 0.1; // Limit individual joint steps to 0.1 radians
+    delta_vec.iter().map(|&x| if x.abs() > max_step { x.signum() * max_step } else { x }).collect()
 }
 
 fn twist_norms(v: &Vector6<f64>) -> (f64, f64) {
@@ -55,7 +64,7 @@ pub fn ikin_space_log(
     max_iter: usize,
 ) -> (Vec<f64>, bool, IKSolveLog) {
     let mut theta = theta0.to_vec();
-    let lambda = 1e-6;
+    let lambda = 1e-3; // Increased damping for better stability
     let mut log = IKSolveLog { iters: vec![], ang_norm: vec![], lin_norm: vec![], thetas: vec![] };
 
     for it in 0..max_iter {
@@ -91,7 +100,8 @@ pub fn ikin_space_log(
             }
         }
         if !accepted {
-            for i in 0..theta.len() { theta[i] += 0.1 * dtheta[i]; }
+            // Reduce step size when backtracking fails
+            for i in 0..theta.len() { theta[i] += 0.01 * dtheta[i]; }
         }
     }
     (theta, false, log)
@@ -108,7 +118,7 @@ pub fn ikin_body_log(
     max_iter: usize,
 ) -> (Vec<f64>, bool, IKSolveLog) {
     let mut theta = theta0.to_vec();
-    let lambda = 1e-6;
+    let lambda = 1e-3; // Increased damping for better stability
     let mut log = IKSolveLog { iters: vec![], ang_norm: vec![], lin_norm: vec![], thetas: vec![] };
 
     for it in 0..max_iter {
@@ -143,7 +153,8 @@ pub fn ikin_body_log(
             }
         }
         if !accepted {
-            for i in 0..theta.len() { theta[i] += 0.1 * dtheta[i]; }
+            // Reduce step size when backtracking fails
+            for i in 0..theta.len() { theta[i] += 0.01 * dtheta[i]; }
         }
     }
     (theta, false, log)
