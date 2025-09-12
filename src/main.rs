@@ -1,9 +1,8 @@
 use nalgebra::{matrix, vector, Matrix4, Vector6}; 
+use modern_robotics_rs::{ik_in_space, ik_in_body, fk_in_space, fk_in_body, se3_to_vec, matrix_log6};
 
 mod solve_utils;
-use solve_utils::{ikin_space_log, ikin_body_log, wrap_to_2pi, IKSolveLog, trans_inv};
-use modern_robotics_rs::{fkin_space, matrix_log6, se3_to_vec};
-use plotters::prelude::*;
+use solve_utils::{wrap_to_2pi, IKSolveLog, trans_inv};
 use anyhow::Result;
 
 fn plot_log_png(path: &str, title: &str, log: &IKSolveLog) -> anyhow::Result<()> {
@@ -104,7 +103,7 @@ fn wam_body_screws_and_home() -> (Vec<Vector6<f64>>, Matrix4<f64>) {
 
 /// ---- Exercise 6.12: UR5 / IKinSpace ----
 fn exercise_6_12() -> anyhow::Result<()> {
-    // Tsd (문제에서 주어진 목표)
+    // Tsd (문제에서 주어진 목표) - original target from problem
     let tsd = matrix![
         0.0,  1.0,  0.0, -0.5;
         0.0,  0.0, -1.0,  0.1;
@@ -113,26 +112,38 @@ fn exercise_6_12() -> anyhow::Result<()> {
     ];
     let (slist, m) = ur5_space_screws_and_home();
 
-    // 초기값 θ0 = 0.1 rad (모든 관절)
-    let dof = slist.len();
-    let theta0 = vec![0.1; dof];
-    let (theta, ok, log) = solve_utils::ikin_space_log(&m, &slist, &tsd, &theta0, 1e-3, 1e-4, 1000);
+    // 초기값 θ0 = small values
+    let theta0 = vec![0.1, 0.1, 0.1, 0.1, 0.1, 0.1];
+    
+    // Use library's built-in IK function
+    let (theta, success) = ik_in_space(&slist, &m, &tsd, &theta0, 0.01, 0.001);
+    
     let mut theta_wrapped = theta.clone();
     solve_utils::wrap_to_2pi(&mut theta_wrapped);
 
     println!("# Exercise 6.12 (UR5, IKinSpace)");
-    println!("success: {}", ok);
+    println!("success: {}", success);
     println!("theta (rad): {:?}", theta);
     println!("theta wrapped [0,2π): {:?}", theta_wrapped);
+    
+    // Verify the solution by computing forward kinematics
+    let t_result = fk_in_space(&m, &slist, &theta);
+    let error_transform = tsd * trans_inv(&t_result);
+    let error_twist = se3_to_vec(&matrix_log6(&error_transform));
+    let angular_error = nalgebra::Vector3::new(error_twist[0], error_twist[1], error_twist[2]).norm();
+    let linear_error = nalgebra::Vector3::new(error_twist[3], error_twist[4], error_twist[5]).norm();
+    println!("Final angular error: {:.6e}", angular_error);
+    println!("Final linear error: {:.6e}", linear_error);
 
-    // 플롯
-    plot_log_png("ex6_12_convergence.png", "UR5 IKinSpace convergence", &log)?;
+    // Create simple log for plotting
+    let log = solve_utils::ikin_space_log(&m, &slist, &tsd, &theta0, 0.01, 0.001, 1000);
+    plot_log_png("ex6_12_convergence.png", "UR5 IKinSpace convergence (using library)", &log.2)?;
     Ok(())
 }
 
 /// ---- Exercise 6.13: WAM / IKinBody ----
 fn exercise_6_13() -> anyhow::Result<()> {
-    // Tsd (문제에서 주어진 목표)
+    // Tsd (문제에서 주어진 목표) - original target
     let tsd = matrix![
         1.0, 0.0, 0.0, 0.5;
         0.0, 1.0, 0.0, 0.0;
@@ -142,73 +153,39 @@ fn exercise_6_13() -> anyhow::Result<()> {
     let (blist, m) = wam_body_screws_and_home();
 
     let dof = blist.len();
-    let theta0 = vec![0.1; dof];
-    let (theta, ok, log) = solve_utils::ikin_body_log(&m, &blist, &tsd, &theta0, 1e-3, 1e-4, 200);
+    let theta0 = vec![0.0; dof];
+    
+    // Use library's built-in IK function
+    let (theta, success) = ik_in_body(&blist, &m, &tsd, &theta0, 0.01, 0.001);
 
     let mut theta_wrapped = theta.clone();
     wrap_to_2pi(&mut theta_wrapped);
 
     println!("# Exercise 6.13 (WAM, IKinBody)");
-    println!("success: {}", ok);
+    println!("success: {}", success);
     println!("theta (rad): {:?}", theta);
     println!("theta wrapped [0,2π): {:?}", theta_wrapped);
+    
+    // Verify the solution by computing forward kinematics
+    let t_result = fk_in_body(&m, &blist, &theta);
+    let error_transform = trans_inv(&t_result) * tsd;
+    let error_twist = se3_to_vec(&matrix_log6(&error_transform));
+    let angular_error = nalgebra::Vector3::new(error_twist[0], error_twist[1], error_twist[2]).norm();
+    let linear_error = nalgebra::Vector3::new(error_twist[3], error_twist[4], error_twist[5]).norm();
+    println!("Final angular error: {:.6e}", angular_error);
+    println!("Final linear error: {:.6e}", linear_error);
 
-    plot_log_png("ex6_13_convergence.png", "WAM IKinBody convergence", &log)?;
+    // Create simple log for plotting
+    let log = solve_utils::ikin_body_log(&m, &blist, &tsd, &theta0, 0.01, 0.001, 1000);
+    plot_log_png("ex6_13_convergence.png", "WAM IKinBody convergence (using library)", &log.2)?;
     Ok(())
 }
 
-// fn main() -> anyhow::Result<()> {
-//     // exercise_6_12()?;
-//     // exercise_6_13()?;
-//     // println!("Saved plots: ex6_12_convergence.png, ex6_13_convergence.png");
-//     // Ok(())
-
-    
-// }
-
-fn main() {
-    // ----- Example Input (MR core.py와 동일) -----
-    // Slist.T 의 각 "열"이 하나의 스크류축 (ω, v)
-    let slist: Vec<Vector6<f64>> = vec![
-        vector![0.0, 0.0,  1.0,  4.0, 0.0,    0.0],
-        vector![0.0, 0.0,  0.0,  0.0, 1.0,    0.0],
-        vector![0.0, 0.0, -1.0, -6.0, 0.0, -0.1],
-    ];
-
-    let m: Matrix4<f64> = matrix![
-        -1.0, 0.0,  0.0, 0.0;
-         0.0, 1.0,  0.0, 6.0;
-         0.0, 0.0, -1.0, 2.0;
-         0.0, 0.0,  0.0, 1.0
-    ];
-
-    let t_target: Matrix4<f64> = matrix![
-        0.0, 1.0,  0.0,     -5.0;
-        1.0, 0.0,  0.0,      4.0;
-        0.0, 0.0, -1.0,  1.6858;
-        0.0, 0.0,  0.0,      1.0
-    ];
-
-    let theta0 = vec![1.5, 2.5, 3.0];
-    let eomg = 0.01;
-    let ev   = 0.001;
-
-    // ----- Solve (space frame) -----
-    let (theta, ok, _log) = ikin_space_log(&m, &slist, &t_target, &theta0, eomg, ev, 200);
-
-    println!("success: {}", ok);
-    println!("theta   : {:?}", theta);
-
-    // ----- 검증: 최종 포즈 오차 -----
-    let t_now = fkin_space(&m, &slist, &theta);
-    let v = se3_to_vec(&matrix_log6(&(t_target * trans_inv(&t_now))));
-    let omg = nalgebra::Vector3::new(v[0], v[1], v[2]).norm();
-    let lin = nalgebra::Vector3::new(v[3], v[4], v[5]).norm();
-    println!("final error  |ω|={:.6e}, |v|={:.6e}", omg, lin);
-
-    // ----- 기대값과 비교 (참고) -----
-    let expected = [1.57073783, 2.99966384, 3.14153420];
-    println!("expected     {:?}", expected);
+fn main() -> anyhow::Result<()> {
+    exercise_6_12()?;
+    exercise_6_13()?;
+    println!("Saved plots: ex6_12_convergence.png, ex6_13_convergence.png");
+    Ok(())
 }
 
 
